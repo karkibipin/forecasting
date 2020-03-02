@@ -1,0 +1,282 @@
+---
+title: "Forecasting "
+author: "Bipin karki - bipinkarki.nep@gmail.com"
+date: "20/10/2019"
+output:
+  pdf_document:
+    fig_caption: yes
+    latex_engine: xelatex
+  word_document: default
+subtitle: 'ARIMA, SARIMA and MARKOV CHAIN MODEL '
+header-includes: \usepackage{float}
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+## 1. BJSALES Dataset
+
+BJsales is a time series sales dataset that has 150 observations. The following is the plot of BJsales.
+
+
+```{r loading library, echo=FALSE, message=FALSE, warning=FALSE}
+library(datasets)
+require(stats)
+require(graphics)
+require(forecast)
+require(latexpdf)
+require(tinytex)
+require(forecast)
+library(knitr)
+library(markovchain)
+#require(aTSA)
+#detach("package:aTSA", unload=TRUE)
+```
+```{r BJsales data, echo=TRUE, fig.align='center', fig.cap="BJsales dataset", fig.pos='H', message=FALSE, warning=FALSE}
+
+plot(BJsales, col = "dark green", xlab = "Observations", ylab = "BJSALES", 
+     main = "BJsales dataset", xaxt='n', lwd=2)+
+axis(1, seq(0,150,5))+
+abline(v=seq(0,150,5), lty=3, col="gray")
+
+```
+
+From the plot we can observe that the mean is changing over time and the time series is not statioary. We can see the change point at 78th observation is significant and considering dataset after 78th observation and observe the plot.
+
+```{r BJsales data change point, echo=TRUE, message=FALSE, warning=FALSE,fig.align='center', fig.pos = 'H',fig.cap= "BJsales dataset after change point"}
+BJsales_data = window(BJsales, start=78)
+plot(BJsales_data, col = "dark green", xlab = "Observations", ylab = "BJSALES", 
+     main = "BJsales dataset", xaxt='n', lwd=2, type="o")+
+axis(1, seq(0,150,5))+
+abline(v=seq(0,150,5), lty=3, col="gray")
+
+```
+
+From the plot we can see that the dataset has upward trend and not staionary. Lets take a first order difference and observe if we can acheive the stationarity of the data.
+
+```{r first order difference, echo=TRUE, message=FALSE, warning=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "First order difference of BJsales dataset"}
+plot(diff(BJsales_data), col = "dark blue", xlab = "BJsales", ylab = "Observations", 
+     main = "First order difference
+of BJsales dataset", lwd=2, type="o")
+
+```
+
+We can observe that the time series plot shown above is still not staionary. Further taking seond order difference of the dataset to make it stationary.
+```{r second order difference, echo=TRUE, message=FALSE,warning=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "Second order difference of BJsales dataset"}
+par(mfrow = c(1, 1))
+plot(diff(diff(BJsales_data)), col = "dark blue", xlab = "BJsales", ylab = "Observations", 
+     main = "Second order difference
+of BJsales dataset", lwd=2, type="o")
+```
+
+From the above figure we can clearly see that the dataset is stationary and does not follow any trends. We can fit the ARIMA model after observing ACF and PACF plots.
+
+```{r ACF/PACF, echo=TRUE, warning=FALSE, message=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "ACF/PACF of 2nd order difference dataset"}
+par(mfrow = c(1, 2))
+acf(diff(diff(BJsales_data)), col="purple", lwd = 2, main = "ACF plot")
+pacf(diff(diff(BJsales_data)), col = "purple", lwd = 2, main = "PACF plot")
+```
+
+From ACF lag 1 and 9 seems significant, while from PACF only lag 1 seems significant. Let's try building different ARIMA model and finalise the model based on value of AIC.
+
+```{r ARIMA model, echo=TRUE, warning=FALSE, message=FALSE}
+model <- arima(BJsales_data, order = c(0, 2, 1))
+model
+```
+Here, we found that ARIMA model with the order of (0, 2, 1) has smallest AIC value of 231.88. 
+
+Following is the equation of the model
+
+equation one is obtained from the coefficient of the model
+
+  $\nabla^2x_{t}  = w_{t} - 0.708 b w_{t-1}$ ....... eq(1)
+
+  deriving above equation 1, we get
+    
+  $x_{t} = 2x_{t-1} - x_{t-2} + w_{t} – 0.7080w_{t-1}$
+    
+
+
+```{r model residuals, echo=TRUE, warning=FALSE, message=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "Residual plots"}
+par(mfrow = c(2, 2))
+plot(model$residuals, ylab="Residual", main="Residual plot", col="brown")
+acf(model$residuals, main="Residual ACF plot", col="brown")
+pacf(model$residuals, main="Residual PACF plot", col="brown")
+qqnorm(model$residuals, main="Residual Q-Q plot", col="brown")
+
+```
+
+From above residual plots we can see no significant correlation as well as QQ-plot also looks normal. It does not show any trends or seasionality and neither consist of pure white noise. Thus, we can conclude that the model meets the assumption that the residuals are independent.
+
+Now let's plot the forecast for 5 observation.
+
+```{r forecast, echo=TRUE, warning=FALSE, message=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "Forcasting five observation points"}
+
+BJsales.Future <- forecast(model, head(5))
+BJsales.Future.df <- BJsales.Future
+kable(BJsales.Future.df, caption = "Predicted sales value for 5 
+      observation with confidence intervals")
+plot(BJsales.Future)
+```
+
+## 2. Mauna Loa Atmospheric CO2 Concentration Dataset
+
+CO2 dataset is a time series of 468 monthlyu observations from 1959 to 1997. Atmospheric concentrations of CO2 are expressed in parts per million (ppm) and reported in the preliminary 1997 SIO manometric mole fraction scale.
+
+We will try to fit a seasional ARIMA model to predict the level of co2 in 1998.
+
+```{r CO2 Concentration data, echo=TRUE, fig.align='center', fig.cap="BJsales dataset", fig.pos='H', message=FALSE, warning=FALSE}
+
+plot(co2, col = "dark green", xlab = "Year", ylab = "parts per million (ppm)", 
+     main = "CO2 Concentration", lwd=1)
+```
+
+From the plot we can observe that the trend of co2 concentration is linear has seasional pattern over every month. Thus, the dataset is not stationary. To fit the model we need to acheive the stationarity of the datset. For that lets take a first order difference and observe if we can acheive the stationarity of the data.
+
+```{r first order difference co2, echo=TRUE, message=FALSE, warning=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "First order difference of CO2 Concentration dataset"}
+par(mfrow = c(1, 1))
+plot(diff(co2, lag = 12), col = "dark blue", xlab = "Year", ylab = "parts per million (ppm)", 
+     main = "First order difference of
+     CO2 Concentration", lwd=1)
+
+```
+
+We can observe that the time series plot shown above is still not staionary. Further taking second order difference of the dataset to make it stationary.
+```{r second order difference co2, echo=TRUE, message=FALSE,warning=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "Second order difference of CO2 Concentration dataset"}
+plot(diff(diff(co2, lag=12)), col = "dark blue", xlab = "Year", ylab = "parts per million (ppm)", 
+     main = "Second order difference of
+     CO2 Concentration", lwd=1)
+```
+
+From the above figure we can clearly see that the dataset is stationary and does not follow any trends. We can fit the ARIMA model after observing ACF and PACF plots.
+
+```{r Auto-correlation ACF/PACF, echo=TRUE, warning=FALSE, message=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "ACF/PACF of 2nd order difference co2 dataset"}
+par(mfrow = c(1, 2))
+acf(diff(diff(co2, lag = 12)), col="purple", lwd = 2, main = "ACF plot of co2")
+pacf(diff(diff(co2, lag= 12)), col = "purple", lwd = 2, main = "PACF plot of co2")
+```
+
+From ACF we can see that the lags are significant at ‘1’, ‘3’ ‘8’, ‘10’ and ‘11’. After lag ‘11’, all the lags are insignificant and indicating no correlation. While from PACF lags ‘3’, ‘9’, '11', ‘12’, ‘13’, ‘24’, '25' and '26' seems significant but we are uncertain to take the order of ARIMA. We will try building different ARIMA model and finalise the model based on value of AIC.
+
+```{r ARIMA co2 model, echo=TRUE, warning=FALSE, message=FALSE}
+co2_model <- arima(co2, order = c(0,1,1), seasonal = c(0,1,1))
+co2_model
+```
+Here, we found that ARIMA model with the order of (0, 1, 1)(0,1,1)[12] that has smallest AIC value of 178.16. 
+From the model we have obtained Seasonal Moving Average coefficient which is -0.8506 and used to write the equation of the co2 model
+
+
+   $(1 - B_{12}) * (1- B) * x_t  = (1 - \phi_Q B_{12}) * (1 - \phi_qB) * w_t$ 
+  
+  Where, moving average term (ma) is $(\phi_q)$ and seasional moving average term (sma) is $(\phi_Q)$ 
+    
+$x_t  =  x_{t-1} + x_{t-12}  - x_{t-13}  + w_t - \phi_q wt-1 - \phi_Q w_{t-12} + \phi_Q \phi_q w_{t-13}$ 
+   
+Replacing values of $(\phi_Q)$  and $(\phi_q)$, we get the final equation of prediction
+
+  $x_t  =  x_{t-1} + x_{t-12}  - x_{t-13}  + w_t – 0.3501 w_{t-1} + 0.8506 w_{t-12} + 0.2977  w_{t-13}$
+
+
+```{r co2_model residuals, echo=TRUE, warning=FALSE, message=FALSE,fig.align='center', fig.pos = 'H', fig.cap= "Residual plots"}
+par(mfrow = c(2, 2))
+plot(co2_model$residuals, ylab="Residual", main="Residual plot", col="brown")
+acf(co2_model$residuals, main="Residual ACF plot", col="brown")
+pacf(co2_model$residuals, main="Residual PACF plot", col="brown")
+qqnorm(co2_model$residuals, main="Residual Q-Q plot", col="brown")
+
+```
+
+From above residual plots we can see no significant correlation as well as QQ-plot also looks normal. It does not show any trends or seasionality and neither consist of pure white noise. Thus, we can conclude that the co2_model meets the assumption that the residuals are independent.
+
+Now let's plot the forecast of level of co2 in 1998.
+
+```{r predict co2, echo=TRUE, warning=FALSE, message=FALSE}
+
+co2.Future <- predict(co2_model,n.ahead=12,se.fit = FALSE)
+co2.Future
+```
+```{r prediction plot co2, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.pos = 'H', fig.cap= "Forcasting level of co2 in 1998"}
+co2fitted <- co2 - co2_model$residuals
+ts.plot(co2, co2fitted, co2.Future, col = 1:3, main = "co2 level from 1959-1998", ylab = expression("Atmospheric concentration of CO"[2]))
+```
+
+## 3. Cloudy days dataset
+
+Cloudy days dataset is simulated weather for 71 days, starting with sunny on the zeroth day and ending with rain on the $70^{th}$ day, where 1 denotes sunny, 2 denotes cloudy and 3 denotes rain. We are assuming that this simulated weather pattern follows a Markov Chain model.
+
+The following is the estimated entries $\hat p_{ij}$ for the one step transition matrix
+P
+
+```{r one step transition matrix, echo=TRUE, message=FALSE, warning=FALSE}
+Cloudy.data <- as.vector(readLines("cloudydays.txt"))[2:72]
+Fit.markovchain <- markovchainFit(data=Cloudy.data)
+Fit.markovchain$estimate
+```
+
+We know that on day 70 the weather is raining so we can create the row matrix as (0,0,1). Here, 1 indicates rainy day
+
+day70 = (0,0,1)  
+
+For calculating the probability of weather of day 71, we are multiplying one step transition matrix by day70. Similary, for calculating probabilty of weather of day 72 we are multiplying two step transition matrix by day70 and so on. Probabilities of weather of day 72 and day 73 is shown below
+
+```{r probability of rain, echo=TRUE,}
+Estimate.Fit.markovchain <- as.matrix(Fit.markovchain$estimate[1:3])
+day_70 <- cbind(0,0,1)
+
+day_71 <- day_70 %*% Estimate.Fit.markovchain
+day_72 <- day_71 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain
+day_73 <- day_72 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain
+
+#merging all three matrix
+day71_73 <- data.frame(rbind(day_71,day_72,day_73))
+colnames(day71_73)= c("sunny","cloudy","rainy")
+rownames(day71_73)= c("Day 71","Day 72", "Day 73")
+kable(day71_73, caption = "Probability of weather on day 71, 72 and 73")
+```
+
+After the weather was rainy on day 70 from the above table we can say that the probability of weather to be cloudy on day 72 and day 73 is 0.4446621 and 0.4445670 respectively. Similarly, probability of weather to stay rainy for both day 72 and day 73 is 0.1277661 and 0.1279647 respectively. Whereas, probability of weather to be sunny for both day 72 and day 73 is 0.4275718 and 0.4274683 respectively.
+
+```{r transition matrix, echo=FALSE}
+
+transition.mat = data.frame(Estimate.Fit.markovchain)
+colnames(transition.mat)= c("sunny","cloudy","rainy")
+kable(transition.mat, caption = "Transition matrix by row")
+
+```
+
+Lets calculate the probability of the weather staying rainy on day 71, then cloudy on day 72 and sunny on day 73. This probaility is calculated from transition matrix and can be written as 
+
+   Rainy → Rainy → Cloudy → Sunny, or 3 → 3 → 2 → 1. So this is
+   
+   $p_{33} * p_{32} * p_{21} =0.1250 * 0.5 * 0.4193548$ 
+                            $=0.0262$
+
+Thus, probability of the weather staying rainy on day 71, then cloudy on day 72 and sunny on day 73 is 0.0262
+
+#### Steady State condition
+
+As we know that sometimes Markov Chain may settle into a steady-state condition where the increment of steps of transition matrix doesnot change the probability of occurance of events. This means that we multiply P with itself until the result does not change any more. We obtained the steady state condition for this data set at $p^6$ which is shown in table below 
+
+```{r steadystate, echo=TRUE, message=FALSE, warning=FALSE}
+day_74 = day_70 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain 
+day_75 = day_70 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain
+day_76 = day_70 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain
+day_77 = day_70 %*% Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain %*% 
+  Estimate.Fit.markovchain %*% Estimate.Fit.markovchain  %*%   Estimate.Fit.markovchain
+
+day74_77 <- data.frame(rbind(day_74,day_75,day_76,day_77))
+colnames(day74_77)= c("sunny","cloudy","rainy")
+rownames(day74_77)= c("Day 74","Day 75", "Day 76", "Day 77")
+kable(day74_77, caption = "Checking steady state probability")
+
+```
+
+In the table we can see that the probability of weather is exactly the same for day 76 and 77. Thus, we can say that the n step transition matrix is settled at $p^6$. This means that for a typical day the state of weather to be Sunny is 0.4274683, cloudy is 0.4445670 and rainy is 0.1279647. 
+
